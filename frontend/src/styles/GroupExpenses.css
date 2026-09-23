@@ -1,0 +1,37 @@
+.group-expenses {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
+
+.group-friend-picker {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.group-friend-chip {
+	border: 1.5px solid var(--border);
+	background: var(--surface);
+	border-radius: 999px;
+	padding: 9px 18px;
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--text);
+	transition: all 0.15s ease;
+}
+.group-friend-chip:hover {
+	border-color: var(--violet);
+}
+.group-friend-chip.selected {
+	background: linear-gradient(135deg, var(--violet), var(--violet-dark));
+	border-color: transparent;
+	color: white;
+	box-shadow: 0 2px 8px rgba(139, 127, 209, 0.35);
+}
+
+.group-activities-list {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
