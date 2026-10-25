@@ -140,6 +140,40 @@ router.post("/", async (req, res) => {
 	res.json(data);
 });
 
+// Editing is only allowed for expenses you logged yourself — not the ones created
+// automatically when you settle up in a group, which stay tied to that settlement.
+router.patch("/:id", async (req, res) => {
+	const { id } = req.params;
+	const { amount, category, note, expense_date } = req.body;
+
+	const { data: existing } = await supabase
+		.from("expenses")
+		.select("source")
+		.eq("id", id)
+		.eq("user_id", req.userId)
+		.single();
+	if (!existing) return res.status(404).json({ error: "Expense not found" });
+	if (existing.source !== "manual") {
+		return res.status(400).json({ error: "This expense was added automatically and can't be edited directly." });
+	}
+	if (!amount || !category) return res.status(400).json({ error: "amount and category are required" });
+
+	const { data, error } = await supabase
+		.from("expenses")
+		.update({
+			amount: Number(amount),
+			category,
+			note: note?.trim() || null,
+			expense_date: expense_date || new Date().toISOString().slice(0, 10),
+		})
+		.eq("id", id)
+		.eq("user_id", req.userId)
+		.select()
+		.single();
+	if (error) return res.status(500).json({ error: error.message });
+	res.json(data);
+});
+
 router.delete("/:id", async (req, res) => {
 	const { id } = req.params;
 	const { error } = await supabase.from("expenses").delete().eq("id", id).eq("user_id", req.userId);

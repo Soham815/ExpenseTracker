@@ -1,16 +1,46 @@
-const BASE = `${import.meta.env.VITE_API_URL || ""}/api`;
+// trailing slashes are stripped so "https://host/" can't become "https://host//api"
+const BASE = `${(import.meta.env.VITE_API_URL || "").replace(/\/+$/, "")}/api`;
 
 function authHeaders() {
 	const token = localStorage.getItem("expense_tracker_token");
 	return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// The server answered with a web page or plain text instead of data. The cause
+// matters, so say which it is rather than always blaming VITE_API_URL.
+async function nonJsonMessage(res) {
+	let path = "";
+	try {
+		path = new URL(res.url).pathname;
+	} catch {
+		/* no usable URL on the response */
+	}
+
+	if (res.status === 404) {
+		// A 404 means "this server has no such endpoint". Ask it who it is: if it's a
+		// different project's backend, that's the real problem (wrong port / wrong URL),
+		// not missing code.
+		let who = null;
+		try {
+			who = (await (await fetch(`${BASE}/health`)).json()).project;
+		} catch {
+			/* health check unreachable — fall through to the generic explanation */
+		}
+		if (who && who !== "Expense Tracker") {
+			return `This app is connected to the wrong backend — it answered as "${who}", not the Expense Tracker backend. Check VITE_API_URL (or which backend is using port 4000) so it points at the Expense Tracker backend.`;
+		}
+		return `The Expense Tracker backend you're connected to has no endpoint for this request${path ? ` (${path})` : ""}. It's probably running older code — restart or redeploy it with the latest files.`;
+	}
+	if (res.status >= 500) {
+		return `The server isn't responding properly (HTTP ${res.status}). It may still be starting up — wait a few seconds and try again.`;
+	}
+	return "Got a web page instead of data from the API. Check that VITE_API_URL is set correctly and points at your backend.";
+}
+
 async function handle(res) {
 	const contentType = res.headers.get("content-type") || "";
 	if (!contentType.includes("application/json")) {
-		throw new Error(
-			"Got a non-JSON response from the API. Check that VITE_API_URL is set correctly and points at your backend."
-		);
+		throw new Error(await nonJsonMessage(res));
 	}
 	const data = await res.json();
 	if (res.status === 401) {
@@ -43,6 +73,12 @@ export const api = {
 	createExpense: (payload) =>
 		fetch(`${BASE}/expenses`, {
 			method: "POST",
+			headers: { "Content-Type": "application/json", ...authHeaders() },
+			body: JSON.stringify(payload),
+		}).then(handle),
+	updateExpense: (id, payload) =>
+		fetch(`${BASE}/expenses/${id}`, {
+			method: "PATCH",
 			headers: { "Content-Type": "application/json", ...authHeaders() },
 			body: JSON.stringify(payload),
 		}).then(handle),

@@ -19,3 +19,85 @@
 	background: var(--surface-alt);
 	border-radius: var(--radius);
 }
+
+/* ---------- category donut + legend ---------- */
+
+.expense-pie-wrap {
+	position: relative;
+}
+
+/* Total sits in the donut's hole; pointer-events off so tooltips still work */
+.expense-pie-center {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+}
+.expense-pie-center-label {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text-muted);
+}
+.expense-pie-center-value {
+	font-size: 18px;
+	font-weight: 800;
+	color: var(--text);
+	max-width: 110px;
+	text-align: center;
+	overflow-wrap: anywhere;
+}
+
+/* Every category gets its own row, so nothing has to be squeezed onto the chart */
+.expense-pie-legend {
+	list-style: none;
+	margin: 14px 0 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.expense-pie-legend-row {
+	display: grid;
+	grid-template-columns: 12px minmax(0, 1fr) auto auto;
+	align-items: start;
+	gap: 10px;
+	background: var(--surface-alt);
+	border-radius: var(--radius-sm);
+	padding: 10px 12px;
+	font-size: 14px;
+}
+
+.expense-pie-dot {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	margin-top: 4px;
+}
+
+/* long names wrap onto extra lines rather than getting cut */
+.expense-pie-name {
+	min-width: 0;
+	overflow-wrap: anywhere;
+	line-height: 1.35;
+	color: var(--text);
+	font-weight: 600;
+}
+
+.expense-pie-amount {
+	font-weight: 700;
+	color: var(--text);
+	white-space: nowrap;
+}
+
+.expense-pie-percent {
+	font-size: 12px;
+	color: var(--text-muted);
+	white-space: nowrap;
+	min-width: 34px;
+	text-align: right;
+	padding-top: 2px;
+}

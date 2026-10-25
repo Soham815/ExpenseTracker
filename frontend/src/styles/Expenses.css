@@ -165,3 +165,16 @@
 	font-size: 11px;
 	color: var(--text-faint);
 }
+
+.expense-row-actions {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+	flex-shrink: 0;
+}
+
+/* the shared .icon-btn turns red on hover (right for delete); editing shouldn't */
+.icon-btn.expense-edit-btn:hover {
+	color: var(--primary-dark);
+	background: var(--primary-light);
+}

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import { CategoryPieChart, YearBarChart } from "../components/ExpenseCharts.jsx";
+import ExpenseForm from "../components/ExpenseForm.jsx";
 import { MONTH_NAMES, highestMonthInsight, categoryColor } from "../utils/expenseCategories.js";
 import "../styles/Expenses.css";
 
@@ -23,14 +24,7 @@ export default function Expenses() {
 	const [pieMonth, setPieMonth] = useState(currentMonthStr());
 	const [pieMonthSummary, setPieMonthSummary] = useState(null);
 
-	// form
-	const [amount, setAmount] = useState("");
-	const [category, setCategory] = useState("");
-	const [addingCategory, setAddingCategory] = useState(false);
-	const [newCategory, setNewCategory] = useState("");
-	const [note, setNote] = useState("");
-	const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-	const [busy, setBusy] = useState(false);
+	const [editingId, setEditingId] = useState(null);
 
 	useEffect(() => {
 		loadAll();
@@ -45,10 +39,7 @@ export default function Expenses() {
 	}, [pieMonth]);
 
 	function loadAll() {
-		api.getExpenseCategories().then((cats) => {
-			setCategories(cats);
-			if (cats.length && !category) setCategory(cats[0].name);
-		});
+		api.getExpenseCategories().then(setCategories);
 		api.getExpenses().then(setExpenses);
 		api.getMonthSummary(currentMonthStr()).then(setMonthSummary);
 		api.getOverallSummary().then(setOverallSummary);
@@ -56,28 +47,19 @@ export default function Expenses() {
 		api.getMonthSummary(pieMonth).then(setPieMonthSummary);
 	}
 
-	async function handleAddCategory() {
-		if (!newCategory.trim()) return;
-		const created = await api.addExpenseCategory(newCategory.trim());
+	function handleCategoryAdded(created) {
 		setCategories((c) => [...c, created].sort((a, b) => a.name.localeCompare(b.name)));
-		setCategory(created.name);
-		setNewCategory("");
-		setAddingCategory(false);
 	}
 
-	async function handleAdd(e) {
-		e.preventDefault();
-		if (!amount || !category) return;
-		setBusy(true);
-		try {
-			await api.createExpense({ amount: Number(amount), category, note, expense_date: date });
-			setAmount("");
-			setNote("");
-			loadAll();
-		} catch (err) {
-			alert(err.message);
-		}
-		setBusy(false);
+	async function handleAdd(values) {
+		await api.createExpense(values);
+		loadAll();
+	}
+
+	async function handleSaveEdit(id, values) {
+		await api.updateExpense(id, values);
+		setEditingId(null);
+		loadAll();
 	}
 
 	async function removeExpense(id) {
@@ -134,59 +116,12 @@ export default function Expenses() {
 
 			<div className="card expense-form-card">
 				<h2>Log an expense</h2>
-				<form onSubmit={handleAdd}>
-					<div className="grid cols-3">
-						<div className="field">
-							<label>Amount (₹)</label>
-							<input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required />
-						</div>
-						<div className="field">
-							<label>Category</label>
-							{!addingCategory ? (
-								<select value={category} onChange={(e) => setCategory(e.target.value)}>
-									{categories.map((c) => (
-										<option key={c.id} value={c.name}>
-											{c.name}
-										</option>
-									))}
-								</select>
-							) : (
-								<div style={{ display: "flex", gap: 6 }}>
-									<input
-										value={newCategory}
-										onChange={(e) => setNewCategory(e.target.value)}
-										placeholder="New category name"
-										autoFocus
-									/>
-									<button type="button" className="btn btn-secondary" onClick={handleAddCategory}>
-										Add
-									</button>
-								</div>
-							)}
-							{!addingCategory && (
-								<button
-									type="button"
-									className="btn btn-ghost"
-									style={{ padding: "4px 8px", fontSize: 12 }}
-									onClick={() => setAddingCategory(true)}
-								>
-									+ New category
-								</button>
-							)}
-						</div>
-						<div className="field">
-							<label>Date</label>
-							<input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-						</div>
-					</div>
-					<div className="field">
-						<label>Note (optional)</label>
-						<input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What was it for?" />
-					</div>
-					<button className="btn" disabled={busy}>
-						{busy ? "Saving…" : "Add expense"}
-					</button>
-				</form>
+				<ExpenseForm
+					categories={categories}
+					submitLabel="Add expense"
+					onSubmit={handleAdd}
+					onCategoryAdded={handleCategoryAdded}
+				/>
 			</div>
 
 			<div className="grid cols-2">
@@ -238,21 +173,41 @@ export default function Expenses() {
 					<div key={group.key} className="expense-month-group">
 						<h3 className="expense-month-heading">{group.label}</h3>
 						<div className="expense-recent-list">
-							{group.items.map((e) => (
-								<div key={e.id} className="expense-recent-row">
-									<span className="expense-cat-dot" style={{ background: categoryColor(e.category) }} />
-									<div className="expense-recent-info">
-										<strong>₹{e.amount}</strong> — {e.category}
-										{e.note && <span className="expense-note"> · {e.note}</span>}
-										<div className="expense-recent-date">{new Date(e.expense_date).toLocaleDateString()}</div>
+							{group.items.map((e) =>
+								editingId === e.id ? (
+									// the same card + form used to add an expense, just prefilled
+									<div key={e.id} className="card expense-form-card">
+										<h3>Edit expense</h3>
+										<ExpenseForm
+											categories={categories}
+											initialValues={e}
+											submitLabel="Save changes"
+											onSubmit={(values) => handleSaveEdit(e.id, values)}
+											onCancel={() => setEditingId(null)}
+											onCategoryAdded={handleCategoryAdded}
+										/>
 									</div>
-									{e.source === "manual" && (
-										<button className="icon-btn" onClick={() => removeExpense(e.id)} title="Delete">
-											✕
-										</button>
-									)}
-								</div>
-							))}
+								) : (
+									<div key={e.id} className="expense-recent-row">
+										<span className="expense-cat-dot" style={{ background: categoryColor(e.category) }} />
+										<div className="expense-recent-info">
+											<strong>₹{e.amount}</strong> — {e.category}
+											{e.note && <span className="expense-note"> · {e.note}</span>}
+											<div className="expense-recent-date">{new Date(e.expense_date).toLocaleDateString()}</div>
+										</div>
+										{e.source === "manual" && (
+											<div className="expense-row-actions">
+												<button className="icon-btn expense-edit-btn" onClick={() => setEditingId(e.id)} title="Edit">
+													✎
+												</button>
+												<button className="icon-btn" onClick={() => removeExpense(e.id)} title="Delete">
+													✕
+												</button>
+											</div>
+										)}
+									</div>
+								)
+							)}
 						</div>
 					</div>
 				))}

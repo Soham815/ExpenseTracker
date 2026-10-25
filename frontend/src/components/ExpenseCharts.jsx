@@ -4,7 +4,6 @@ import {
 	Pie,
 	Cell,
 	Tooltip,
-	Legend,
 	ResponsiveContainer,
 	BarChart,
 	Bar,
@@ -26,28 +25,57 @@ export function CategoryPieChart({ data, title }) {
 			</div>
 		);
 	}
+
+	const sorted = [...data].sort((a, b) => b.amount - a.amount);
+	const total = sorted.reduce((sum, d) => sum + d.amount, 0);
+
 	return (
 		<div className="expense-chart-card">
 			<h3>{title}</h3>
-			<ResponsiveContainer width="100%" height={280}>
-				<PieChart>
-					<Pie
-						data={data}
-						dataKey="amount"
-						nameKey="category"
-						cx="50%"
-						cy="50%"
-						outerRadius={95}
-						label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
-					>
-						{data.map((entry) => (
-							<Cell key={entry.category} fill={categoryColor(entry.category)} />
-						))}
-					</Pie>
-					<Tooltip formatter={(value) => `₹${value}`} />
-					<Legend />
-				</PieChart>
-			</ResponsiveContainer>
+
+			{/* No labels drawn on the slices themselves — long names get clipped and
+			    crowd each other there. The donut shows the shape of the spending, and
+			    the list below carries the full, readable detail. */}
+			<div className="expense-pie-wrap">
+				<ResponsiveContainer width="100%" height={230}>
+					<PieChart>
+						<Pie
+							data={sorted}
+							dataKey="amount"
+							nameKey="category"
+							cx="50%"
+							cy="50%"
+							innerRadius={62}
+							outerRadius={100}
+							paddingAngle={sorted.length > 1 ? 2 : 0}
+							stroke="none"
+						>
+							{sorted.map((entry) => (
+								<Cell key={entry.category} fill={categoryColor(entry.category)} />
+							))}
+						</Pie>
+						<Tooltip formatter={(value, name) => [`₹${value.toLocaleString()}`, name]} />
+					</PieChart>
+				</ResponsiveContainer>
+				<div className="expense-pie-center">
+					<span className="expense-pie-center-label">Total</span>
+					<span className="expense-pie-center-value">₹{total.toLocaleString()}</span>
+				</div>
+			</div>
+
+			<ul className="expense-pie-legend">
+				{sorted.map((entry) => {
+					const pct = (entry.amount / total) * 100;
+					return (
+						<li key={entry.category} className="expense-pie-legend-row">
+							<span className="expense-pie-dot" style={{ background: categoryColor(entry.category) }} />
+							<span className="expense-pie-name">{entry.category}</span>
+							<span className="expense-pie-amount">₹{entry.amount.toLocaleString()}</span>
+							<span className="expense-pie-percent">{pct < 1 ? "<1" : Math.round(pct)}%</span>
+						</li>
+					);
+				})}
+			</ul>
 		</div>
 	);
 }
